@@ -2,12 +2,6 @@
 
 A Flutter Windows desktop app that downloads every file in a Bunkr album.
 
-> **Note:** The original `gallery-dl.exe` you provided embeds an **outdated**
-> Bunkr protocol (the API returned an XOR-encrypted URL). Bunkr changed to a
-> **signed-URL** CDN scheme, so that old logic now gets HTTP 403 on download.
-> This app implements the **current working protocol** (matching recent
-> gallery-dl).
-
 ## How it works (current Bunkr protocol)
 
 1. **Fetch album page:** `GET https://<domain>/a/<album_id>?advanced=1`
