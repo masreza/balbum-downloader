@@ -7,10 +7,9 @@ import 'package:http/io_client.dart' as http_io;
 
 /// Thrown when the user requests a stop mid-download. Partial bytes are kept.
 class _StoppedException implements Exception {
-  final String message;
-  _StoppedException([this.message = 'stopped']);
+  const _StoppedException();
   @override
-  String toString() => message;
+  String toString() => 'stopped';
 }
 
 /// Bunkr album downloader.
