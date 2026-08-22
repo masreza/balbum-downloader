@@ -6,6 +6,28 @@ import 'package:flutter/material.dart';
 
 import 'bunkr_client.dart';
 
+/// Preserve the full extension chain for a filename, keeping multi-part archive
+/// suffixes intact. Examples:
+///   "photo.jpg"        -> ".jpg"
+///   "vol.zip.001"      -> ".zip.001"
+///   "vol.zip.part01"   -> ".zip.part01"
+///   "name"             -> ""
+String keepArchiveExtension(String name) {
+  name = name.trim();
+  if (name.isEmpty) return '';
+
+  // multi-part archive: filename ends with ".001"/".part01" etc.
+  final tail = RegExp(r'\.(?:part\d+|\d+)$').firstMatch(name);
+  if (tail != null) {
+    final before = name.substring(0, tail.start);
+    final i = before.lastIndexOf('.');
+    if (i > 0) return before.substring(i) + tail.group(0)!;
+  }
+
+  final i = name.lastIndexOf('.');
+  return i > 0 ? name.substring(i) : '';
+}
+
 void main() {
   runApp(const BalbumApp());
 }
@@ -266,16 +288,15 @@ class _DownloaderPageState extends State<DownloaderPage> {
     }
   }
 
-  /// File extension (".mp4" etc.) from the original filename, falling back to
-  /// the URL path.
+  /// Preserved suffix for renamed files ("_audio.mp4", "vol.zip.001", …).
+  /// Falls back to the URL path if the filename has no extension.
   String _extOf(BunkrFile f) {
-    final name = f.name.trim();
-    final i = name.lastIndexOf('.');
-    if (name.isNotEmpty && i > 0) return name.substring(i);
+    final fromName = keepArchiveExtension(f.name);
+    if (fromName.isNotEmpty) return fromName;
     try {
       final p = Uri.parse(f.url).path;
-      final j = p.lastIndexOf('.');
-      if (j > 0 && p.indexOf('/', j) == -1) return p.substring(j);
+      final last = p.split('/').last;
+      return keepArchiveExtension(last);
     } catch (_) {}
     return '';
   }
