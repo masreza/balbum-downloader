@@ -7,17 +7,17 @@ import 'package:flutter/material.dart';
 import 'bunkr_client.dart';
 
 /// Preserve the full extension chain for a filename, keeping multi-part archive
-/// suffixes intact. Examples:
+/// numeric suffixes intact. Examples:
 ///   "photo.jpg"        -> ".jpg"
 ///   "vol.zip.001"      -> ".zip.001"
-///   "vol.zip.part01"   -> ".zip.part01"
+///   "vol.zip.part01"   -> ".part01"   (only .001-style is special-cased)
 ///   "name"             -> ""
 String keepArchiveExtension(String name) {
   name = name.trim();
   if (name.isEmpty) return '';
 
-  // multi-part archive: filename ends with ".001"/".part01" etc.
-  final tail = RegExp(r'\.(?:part\d+|\d+)$').firstMatch(name);
+  // multi-part archive: filename ends with ".001"/".002"/… (numeric suffix)
+  final tail = RegExp(r'\.\d+$').firstMatch(name);
   if (tail != null) {
     final before = name.substring(0, tail.start);
     final i = before.lastIndexOf('.');

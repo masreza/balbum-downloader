@@ -9,15 +9,13 @@ void main() {
       expect(keepArchiveExtension('archive.zip'), '.zip');
     });
 
-    test('keeps multi-part archive suffix (.001 etc)', () {
+    test('only .001-style numeric suffix is special-cased', () {
       expect(keepArchiveExtension('xxx.zip.001'), '.zip.001');
       expect(keepArchiveExtension('yyy.rar.002'), '.rar.002');
       expect(keepArchiveExtension('aaa.7z.010'), '.7z.010');
-    });
-
-    test('keeps .partN suffix', () {
-      expect(keepArchiveExtension('vol.zip.part1'), '.zip.part1');
-      expect(keepArchiveExtension('vol.zip.part01'), '.zip.part01');
+      // .partN is a normal extension, not special-cased
+      expect(keepArchiveExtension('vol.zip.part01'), '.part01');
+      expect(keepArchiveExtension('vol.zip.part1'), '.part1');
     });
 
     test('no extension', () {
