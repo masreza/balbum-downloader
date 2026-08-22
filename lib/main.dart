@@ -39,6 +39,7 @@ class _DownloaderPageState extends State<DownloaderPage> {
   bool _loading = false;
   bool _downloading = false;
   bool _stopRequested = false;
+  bool _mediaOnly = false; // only download pictures & videos when true
   int _currentFile = 0; // 1-based index of the file currently downloading
   String? _status;
   BunkrAlbum? _album;
@@ -126,6 +127,14 @@ class _DownloaderPageState extends State<DownloaderPage> {
     // save directly into the chosen folder (no album subfolder)
     await out.create(recursive: true);
 
+    // honor the media-only filter
+    final targets = _mediaOnly ? album.files.where((f) => f.isMedia).toList() : List.of(album.files);
+    if (targets.isEmpty) {
+      if (!mounted) return;
+      setState(() => _error = 'No files match the current filter.');
+      return;
+    }
+
     setState(() {
       _downloading = true;
       _stopRequested = false;
@@ -142,12 +151,12 @@ class _DownloaderPageState extends State<DownloaderPage> {
     try {
       final key = album.id;
       var stopped = false;
-      for (var i = 0; i < album.files.length; i++) {
+      for (var i = 0; i < targets.length; i++) {
         if (_stopRequested) {
           stopped = true;
           break;
         }
-        final f = album.files[i];
+        final f = targets[i];
         setState(() => _currentFile = i + 1);
         // prefix the original filename with the album id: ALBUMID_original
         f.name = '${key}_${f.originalName}';
@@ -390,13 +399,41 @@ class _DownloaderPageState extends State<DownloaderPage> {
                   ),
                 ],
               ),
+              const SizedBox(height: 4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Checkbox(
+                        value: _mediaOnly,
+                        onChanged: _downloading
+                            ? null
+                            : (v) => setState(() => _mediaOnly = v ?? false),
+                      ),
+                      GestureDetector(
+                        onTap: _downloading
+                            ? null
+                            : () => setState(() => _mediaOnly = !_mediaOnly),
+                        child: const Text('Media only (pictures & videos)'),
+                      ),
+                    ],
+                  ),
+                  if (_mediaOnly && !_downloading)
+                    Text(
+                      '${album.files.where((f) => f.isMedia).length} media files',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                ],
+              ),
               const SizedBox(height: 8),
               if (_downloading)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Text(
                     'Downloading $_currentFile of '
-                    '${album.files.length} files...',
+                    '${_mediaOnly ? album.files.where((f) => f.isMedia).length : album.files.length} files...',
                     style: const TextStyle(
                         fontSize: 13, color: Colors.grey),
                   ),

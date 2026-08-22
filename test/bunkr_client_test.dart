@@ -252,6 +252,33 @@ window.albumFiles = [
       tmp.delete(recursive: true);
     });
   });
+
+  group('BunkrFile.isMedia filter', () {
+    BunkrFile mk(String name) => BunkrFile(
+        id: 'x', name: name, slug: 's', uuid: 'u', size: 1, url: '');
+
+    test('recognizes pictures', () {
+      expect(mk('photo.jpg').isMedia, true);
+      expect(mk('scanned.PNG').isMedia, true);
+      expect(mk('art.webp').isMedia, true);
+    });
+
+    test('recognizes videos', () {
+      expect(mk('clip.mp4').isMedia, true);
+      expect(mk('movie.MKV').isMedia, true);
+      expect(mk('vid.webm').isMedia, true);
+    });
+
+    test('rejects non-media files', () {
+      expect(mk('document.pdf').isMedia, false);
+      expect(mk('archive.zip').isMedia, false);
+      expect(mk('blob.bin').isMedia, false);
+    });
+
+    test('multi-part archives are not media', () {
+      expect(mk('video.mp4.001').isMedia, false);
+    });
+  });
 }
 
 /// base64(xor(plain, key)) — mirrors the legacy API's encrypt side.
