@@ -6,28 +6,6 @@ import 'package:flutter/material.dart';
 
 import 'bunkr_client.dart';
 
-/// Preserve the full extension chain for a filename, keeping multi-part archive
-/// numeric suffixes intact. Examples:
-///   "photo.jpg"        -> ".jpg"
-///   "vol.zip.001"      -> ".zip.001"
-///   "vol.zip.part01"   -> ".part01"   (only .001-style is special-cased)
-///   "name"             -> ""
-String keepArchiveExtension(String name) {
-  name = name.trim();
-  if (name.isEmpty) return '';
-
-  // multi-part archive: filename ends with ".001"/".002"/… (numeric suffix)
-  final tail = RegExp(r'\.\d+$').firstMatch(name);
-  if (tail != null) {
-    final before = name.substring(0, tail.start);
-    final i = before.lastIndexOf('.');
-    if (i > 0) return before.substring(i) + tail.group(0)!;
-  }
-
-  final i = name.lastIndexOf('.');
-  return i > 0 ? name.substring(i) : '';
-}
-
 void main() {
   runApp(const BalbumApp());
 }
@@ -161,8 +139,6 @@ class _DownloaderPageState extends State<DownloaderPage> {
 
     try {
       final key = album.id;
-      final total = album.files.length;
-      final width = total < 10 ? 2 : total.toString().length;
       var stopped = false;
       for (var i = 0; i < album.files.length; i++) {
         if (_stopRequested) {
@@ -170,9 +146,8 @@ class _DownloaderPageState extends State<DownloaderPage> {
           break;
         }
         final f = album.files[i];
-        // name files as: <album key> (NN)<ext>  e.g. qQK88FlT (01).mp4
-        final num = (i + 1).toString().padLeft(width, '0');
-        f.name = '$key ($num)${_extOf(f)}';
+        // prefix the original filename with the album id: ALBUMID_original
+        f.name = '${key}_${f.originalName}';
         // keep going even if one file fails — never stop the whole batch
         try {
           await _client.downloadFile(f, out,
@@ -286,19 +261,6 @@ class _DownloaderPageState extends State<DownloaderPage> {
     } catch (e) {
       debugPrint('Could not open folder: $e');
     }
-  }
-
-  /// Preserved suffix for renamed files ("_audio.mp4", "vol.zip.001", …).
-  /// Falls back to the URL path if the filename has no extension.
-  String _extOf(BunkrFile f) {
-    final fromName = keepArchiveExtension(f.name);
-    if (fromName.isNotEmpty) return fromName;
-    try {
-      final p = Uri.parse(f.url).path;
-      final last = p.split('/').last;
-      return keepArchiveExtension(last);
-    } catch (_) {}
-    return '';
   }
 
   String _fmtBytes(int b) {

@@ -50,7 +50,8 @@ String _extFromUrl(String url) {
 /// A single file in a Bunkr album.
 class BunkrFile {
   final String id; // data_id, used for /file/<id> referer + API
-  String name; // original filename
+  String name; // display/output filename (may be prefixed with album id)
+  final String originalName; // pristine filename as listed in the album
   String slug;
   String uuid;
   int size; // bytes
@@ -65,15 +66,16 @@ class BunkrFile {
 
   BunkrFile({
     required this.id,
-    required this.name,
+    required String name,
     required this.slug,
     required this.uuid,
     required this.size,
     this.date,
     required this.url,
-  });
+  })  : name = name,
+        originalName = name;
 
-  /// Filename to save on disk. Prefer the original name, else build one.
+  /// Filename to save on disk. Prefer the name, else build one.
   String get safeName =>
       name.trim().isEmpty ? '$slug${_extFromUrl(url)}' : name.trim();
 }
