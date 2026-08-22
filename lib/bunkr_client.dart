@@ -188,8 +188,9 @@ class BunkrDownloader {
       final size = _parseInt(_extr(item, 'size:  ', ',\n'));
       final date = _extr(item, 'timestamp: "', '"');
 
-      // Resolve the real download URL via the API (one POST per file).
-      final urlResolved = await _resolveFile(dataId);
+      // The file LIST doesn't need the download URL — that requires one API/sign
+      // call per file (~1.3s each), which made listing large albums take minutes.
+      // URL is resolved lazily right before each file downloads instead.
       files.add(BunkrFile(
         id: dataId,
         name: name,
@@ -197,12 +198,8 @@ class BunkrDownloader {
         uuid: uuid,
         size: size,
         date: date.isEmpty ? null : date,
-        url: urlResolved,
+        url: '',
       ));
-      // gentle throttle between per-file API calls to avoid rate limiting
-      if (items.length > 20) {
-        await Future<void>.delayed(const Duration(milliseconds: 120));
-      }
     }
 
     return BunkrAlbum(id: id, title: title, files: files);
@@ -344,10 +341,9 @@ class BunkrDownloader {
     }
     f.downloaded = have;
 
-    // The fetched URL is already fresh (2h token). Only re-sign if it's
-    // missing or will expire soon — avoids redundant /sign calls that can
-    // trigger rate limiting on large albums.
-    if (!_tokenFresh(f.url)) {
+    // The list step no longer pre-resolves URLs (for speed). So resolve here:
+    // re-sign if missing, or if the existing token is missing/near expiry.
+    if (f.url.isEmpty || !_tokenFresh(f.url)) {
       f.url = await _freshUrl(f);
     }
 

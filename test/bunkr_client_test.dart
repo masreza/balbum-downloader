@@ -38,8 +38,7 @@ void main() {
     });
   });
 
-  group('fetchAlbum (mock HTTP, current signed-URL scheme)', () {
-    final albumPage = '''
+  const albumPage = '''
 <html><head>
 <meta property="og:title" content="My &amp; Test Album"/>
 <script>
@@ -64,46 +63,36 @@ window.albumFiles = [
 </script>
 </head></html>''';
 
-    final apiBodies = {
-      'aa0001': {
-        'mediafiles': 'https://c2ri-b.cdn.cr',
-        'path': '/storage/media/vid1.mp4',
-        'original': 'My First File.mp4',
-      },
-      'aa0002': {
-        'mediafiles': 'https://c2ri-b.cdn.cr',
-        'path': '/storage/media/img2.jpg',
-        'original': 'image two.jpg',
-      },
-    };
+  final apiBodies = {
+    'aa0001': {
+      'mediafiles': 'https://c2ri-b.cdn.cr',
+      'path': '/storage/media/vid1.mp4',
+      'original': 'My First File.mp4',
+    },
+    'aa0002': {
+      'mediafiles': 'https://c2ri-b.cdn.cr',
+      'path': '/storage/media/img2.jpg',
+      'original': 'image two.jpg',
+    },
+  };
 
-    MockClient signedMock() {
-      return MockClient((req) async {
-        final host = req.url.host;
-        if (req.method == 'GET' && host == 'bunkr.si') {
+  group('fetchAlbum — fast list (no per-file API calls)', () {
+    test('parses the list from the page only; URL resolved lazily = empty',
+        () async {
+      final apiHits = <String>[];
+      final mock = MockClient((req) async {
+        apiHits.add('${req.method} ${req.url.host}');
+        if (req.method == 'GET' && req.url.host == 'bunkr.si') {
           return http.Response(albumPage, 200);
         }
-        if (req.method == 'POST' && host == 'dl.bunkr.cr') {
-          final id = (jsonDecode(req.body) as Map)['id'] as String;
-          expect(req.headers['Referer'], 'https://dl.bunkr.cr/');
-          expect(req.headers['Origin'], 'https://dl.bunkr.cr');
-          return http.Response(jsonEncode(apiBodies[id]!), 200);
-        }
-        if (req.method == 'GET' && host == 'glb-apisign.cdn.cr') {
-          expect(req.headers['Referer'], 'https://dl.bunkr.cr/');
-          expect(req.headers['Origin'], 'https://dl.bunkr.cr');
-          final paths = apiBodies.values.map((b) => b['path']).toSet();
-          expect(paths, contains(req.url.queryParameters['path']));
-          return http.Response(
-              jsonEncode({'ex': 123, 'token': 'tok123'}), 200);
-        }
-        return http.Response('not found', 404);
+        return http.Response('unexpected', 500);
       });
-    }
-
-    test('parses album and resolves SIGNED file URLs', () async {
-      final dl = BunkrDownloader(client: signedMock());
+      final dl = BunkrDownloader(client: mock);
       final album = await dl.fetchAlbum('https://bunkr.si/a/ALBUM1');
+
+      // No API calls made during listing — everything from the HTML page.
+      expect(apiHits.where((h) => h.startsWith('POST')).length, 0);
+      expect(apiHits.where((h) => h.contains('sign')).length, 0);
 
       expect(album.files.length, 2);
       expect(album.title, 'My & Test Album');
@@ -111,63 +100,7 @@ window.albumFiles = [
       expect(album.files[0].slug, 'my-first-file');
       expect(album.files[0].uuid, 'thumb-aa0001');
       expect(album.files[0].size, 1048576);
-      // signed URL = mediafiles + path + ?ex&token&n  (Dart encodes space as '+')
-      expect(
-          album.files[0].url,
-          'https://c2ri-b.cdn.cr/storage/media/vid1.mp4'
-          '?ex=123&token=tok123&n=My+First+File.mp4');
-      expect(
-          album.files[1].url,
-          'https://c2ri-b.cdn.cr/storage/media/img2.jpg'
-          '?ex=123&token=tok123&n=image+two.jpg');
-      dl.close();
-    });
-
-    test('legacy XOR-decrypt branch still works when API returns encrypted',
-        () async {
-      final legacyBody = {
-        'url': // base64(xor("https://media.example/vid.mp4", SECRET_KEY_3))
-            _encrypt('https://media.example/vid.mp4', 'SECRET_KEY_3'),
-        'encrypted': true,
-        'timestamp': 3600 * 3 + 999,
-      };
-      final mock = MockClient((req) async {
-        final host = req.url.host;
-        if (req.method == 'GET' && host == 'bunkr.si') {
-          return http.Response(albumPage, 200);
-        }
-        // no path/mediafiles -> must fall through to legacy branch
-        return http.Response(jsonEncode(legacyBody), 200);
-      });
-      final dl = BunkrDownloader(client: mock);
-      final album = await dl.fetchAlbum('https://bunkr.si/a/ALBUM1');
-      expect(album.files[0].url, 'https://media.example/vid.mp4');
-      dl.close();
-    });
-
-    test('falls back to coordinate domain on CF challenge (403/empty)',
-        () async {
-      final mock = MockClient((req) async {
-        final host = req.url.host;
-        if (host == 'bunkr.si') {
-          return http.Response('', 403); // CF-challenge-gated primary
-        }
-        if (host == 'bunkr.ph') {
-          return http.Response(albumPage, 200);
-        }
-        if (host == 'dl.bunkr.cr') {
-          return http.Response(
-              jsonEncode(apiBodies['aa0001']!), 200);
-        }
-        if (host == 'glb-apisign.cdn.cr') {
-          return http.Response(jsonEncode({'ex': 1, 'token': 't'}), 200);
-        }
-        return http.Response('{}', 200);
-      });
-      final dl = BunkrDownloader(client: mock);
-      final album =
-          await dl.fetchAlbum('https://bunkr.si/a/ALBUM1?advanced=1');
-      expect(album.files.length, 2);
+      expect(album.files[0].url, ''); // resolved lazily at download time
       dl.close();
     });
 
@@ -178,6 +111,84 @@ window.albumFiles = [
       expect(dl.fetchAlbum('https://bunkr.si/a/ALBUM1'),
           throwsA(isA<CloudflareChallengeException>()));
       dl.close();
+    });
+  });
+
+  group('lazy URL resolution at download', () {
+    MockClient signedMock({List<String>? idCaptures}) {
+      return MockClient((req) async {
+        final host = req.url.host;
+        if (req.method == 'POST' && host == 'dl.bunkr.cr') {
+          final id = (jsonDecode(req.body) as Map)['id'] as String;
+          idCaptures?.add(id);
+          expect(req.headers['Referer'], 'https://dl.bunkr.cr/');
+          expect(req.headers['Origin'], 'https://dl.bunkr.cr');
+          return http.Response(jsonEncode(apiBodies[id]!), 200);
+        }
+        if (req.method == 'GET' && host == 'glb-apisign.cdn.cr') {
+          final paths = apiBodies.values.map((b) => b['path']).toSet();
+          expect(paths, contains(req.url.queryParameters['path']));
+          return http.Response(jsonEncode({'ex': 123, 'token': 'tok123'}), 200);
+        }
+        if (req.method == 'GET' && req.url.host == 'c2ri-b.cdn.cr') {
+          expect(req.headers['Referer'], 'https://dl.bunkr.cr/');
+          return http.Response.bytes([1, 2, 3, 4, 5], 200);
+        }
+        return http.Response('not found', 404);
+      });
+    }
+
+    test('downloadFile with empty url signs via API then downloads', () async {
+      final tmp = await Directory.systemTemp.createTemp('balbum_test');
+      final ids = <String>[];
+      final dl = BunkrDownloader(client: signedMock(idCaptures: ids));
+      final f = BunkrFile(
+          id: 'aa0001',
+          name: 'My First File.mp4',
+          slug: 'my-first-file',
+          uuid: 'thumb-aa0001',
+          size: 5,
+          url: ''); // empty — must be resolved lazily
+      await dl.downloadFile(f, tmp);
+
+      expect(ids, ['aa0001']); // resolved the right data_id
+      expect(f.url, isNotEmpty);
+      expect(f.done, true);
+      expect(File('${tmp.path}/My First File.mp4').existsSync(), true);
+      dl.close();
+      tmp.delete(recursive: true);
+    });
+
+    test('legacy XOR-decrypt branch still resolves during download', () async {
+      final tmp = await Directory.systemTemp.createTemp('balbum_test');
+      final legacyBody = {
+        'url': _encrypt('https://media.example/vid.mp4', 'SECRET_KEY_3'),
+        'encrypted': true,
+        'timestamp': 3600 * 3 + 999,
+      };
+      final mock = MockClient((req) async {
+        if (req.url.host == 'dl.bunkr.cr') {
+          return http.Response(jsonEncode(legacyBody), 200);
+        }
+        if (req.url.host == 'media.example') {
+          return http.Response.bytes([9, 9, 9], 200);
+        }
+        return http.Response('', 404);
+      });
+      final dl = BunkrDownloader(client: mock);
+      final f = BunkrFile(
+          id: 'aa0001',
+          name: 'vid.mp4',
+          slug: 'vid',
+          uuid: 'u',
+          size: 3,
+          url: '');
+      await dl.downloadFile(f, tmp);
+      expect(f.url, 'https://media.example/vid.mp4');
+      expect(f.done, true);
+      expect(File('${tmp.path}/vid.mp4').existsSync(), true);
+      dl.close();
+      tmp.delete(recursive: true);
     });
   });
 
