@@ -79,18 +79,30 @@ class BunkrFile {
   String get safeName =>
       name.trim().isEmpty ? '$slug${_extFromUrl(url)}' : name.trim();
 
-  /// True if this file is a picture or video (used by the "media only" filter).
-  bool get isMedia {
+  /// True if this file is a video (used by the download filters).
+  bool get isVideo {
     final name = originalName.toLowerCase();
-    // .zip.001 style multi-part archives belong to the original file, not media
     for (final ext in const [
-      '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.heic', '.heif', '.avif',
       '.mp4', '.mov', '.avi', '.mkv', '.webm', '.wmv', '.flv', '.m4v', '.3gp', '.ts'
     ]) {
       if (name.endsWith(ext)) return true;
     }
     return false;
   }
+
+  /// True if this file is a picture (used by the download filters).
+  bool get isPicture {
+    final name = originalName.toLowerCase();
+    for (final ext in const [
+      '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.heic', '.heif', '.avif'
+    ]) {
+      if (name.endsWith(ext)) return true;
+    }
+    return false;
+  }
+
+  /// True if this file is a picture or video (used by the "media only" filter).
+  bool get isMedia => isPicture || isVideo;
 }
 
 class BunkrAlbum {

@@ -259,14 +259,21 @@ window.albumFiles = [
 
     test('recognizes pictures', () {
       expect(mk('photo.jpg').isMedia, true);
+      expect(mk('photo.jpg').isPicture, true);
       expect(mk('scanned.PNG').isMedia, true);
       expect(mk('art.webp').isMedia, true);
     });
 
     test('recognizes videos', () {
       expect(mk('clip.mp4').isMedia, true);
+      expect(mk('clip.mp4').isVideo, true);
       expect(mk('movie.MKV').isMedia, true);
       expect(mk('vid.webm').isMedia, true);
+    });
+
+    test('pictures are not videos and vice-versa', () {
+      expect(mk('photo.jpg').isVideo, false);
+      expect(mk('clip.mp4').isPicture, false);
     });
 
     test('rejects non-media files', () {

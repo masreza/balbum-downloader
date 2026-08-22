@@ -10,6 +10,17 @@ void main() {
   runApp(const BalbumApp());
 }
 
+/// Which files to download when hitting "Download all".
+enum DownloadFilter {
+  all('All files'),
+  media('All media'),
+  picture('Pictures only'),
+  video('Videos only');
+
+  final String label;
+  const DownloadFilter(this.label);
+}
+
 class BalbumApp extends StatelessWidget {
   const BalbumApp({super.key});
   @override
@@ -39,7 +50,7 @@ class _DownloaderPageState extends State<DownloaderPage> {
   bool _loading = false;
   bool _downloading = false;
   bool _stopRequested = false;
-  bool _mediaOnly = false; // only download pictures & videos when true
+  DownloadFilter _filter = DownloadFilter.all;
   int _currentFile = 0; // 1-based index of the file currently downloading
   String? _status;
   BunkrAlbum? _album;
@@ -119,6 +130,24 @@ class _DownloaderPageState extends State<DownloaderPage> {
     return Directory(path);
   }
 
+  /// How many files the current filter would download from this album.
+  int _filteredCount(BunkrAlbum album) =>
+      album.files.where(_filterMatches).length;
+
+  /// True if [f] should be downloaded given the current [_filter].
+  bool _filterMatches(BunkrFile f) {
+    switch (_filter) {
+      case DownloadFilter.all:
+        return true;
+      case DownloadFilter.media:
+        return f.isMedia;
+      case DownloadFilter.picture:
+        return f.isPicture;
+      case DownloadFilter.video:
+        return f.isVideo;
+    }
+  }
+
   Future<void> _downloadAll() async {
     final album = _album;
     if (album == null) return;
@@ -127,8 +156,8 @@ class _DownloaderPageState extends State<DownloaderPage> {
     // save directly into the chosen folder (no album subfolder)
     await out.create(recursive: true);
 
-    // honor the media-only filter
-    final targets = _mediaOnly ? album.files.where((f) => f.isMedia).toList() : List.of(album.files);
+    // honor the selected filter
+    final targets = album.files.where(_filterMatches).toList();
     if (targets.isEmpty) {
       if (!mounted) return;
       setState(() => _error = 'No files match the current filter.');
@@ -338,17 +367,19 @@ class _DownloaderPageState extends State<DownloaderPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.start,
               children: [
-                Checkbox(
-                  value: _mediaOnly,
-                  onChanged: (_loading || _downloading)
-                      ? null
-                      : (v) => setState(() => _mediaOnly = v ?? false),
-                ),
-                const Text('Media only (pictures & videos)'),
-                const SizedBox(width: 12),
-                if (_mediaOnly)
-                  const Text('Downloads only pictures & video files.',
-                      style: TextStyle(fontSize: 12, color: Colors.grey)),
+                const Text('Download:',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(width: 10),
+                for (final f in DownloadFilter.values) ...[
+                  ChoiceChip(
+                    label: Text(f.label),
+                    selected: _filter == f,
+                    onSelected: (_loading || _downloading)
+                        ? null
+                        : (_) => setState(() => _filter = f),
+                  ),
+                  const SizedBox(width: 6),
+                ],
               ],
             ),
             const SizedBox(height: 8),
@@ -417,9 +448,9 @@ class _DownloaderPageState extends State<DownloaderPage> {
                 ],
               ),
               const SizedBox(height: 4),
-              if (_mediaOnly && !_downloading)
+              if (_filter != DownloadFilter.all && !_downloading)
                 Text(
-                  '${album.files.where((f) => f.isMedia).length} media files '
+                  '${_filteredCount(album)} ${_filter.label.toLowerCase()} '
                   'will be downloaded.',
                   style: const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
@@ -429,7 +460,7 @@ class _DownloaderPageState extends State<DownloaderPage> {
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Text(
                     'Downloading $_currentFile of '
-                    '${_mediaOnly ? album.files.where((f) => f.isMedia).length : album.files.length} files...',
+                    '${_filteredCount(album)} files...',
                     style: const TextStyle(
                         fontSize: 13, color: Colors.grey),
                   ),
