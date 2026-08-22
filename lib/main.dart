@@ -39,6 +39,7 @@ class _DownloaderPageState extends State<DownloaderPage> {
   bool _loading = false;
   bool _downloading = false;
   bool _stopRequested = false;
+  int _currentFile = 0; // 1-based index of the file currently downloading
   String? _status;
   BunkrAlbum? _album;
   String? _error;
@@ -128,6 +129,7 @@ class _DownloaderPageState extends State<DownloaderPage> {
     setState(() {
       _downloading = true;
       _stopRequested = false;
+      _currentFile = 1;
       for (final f in album.files) {
         f.downloaded = 0;
         f.done = false;
@@ -146,6 +148,7 @@ class _DownloaderPageState extends State<DownloaderPage> {
           break;
         }
         final f = album.files[i];
+        setState(() => _currentFile = i + 1);
         // prefix the original filename with the album id: ALBUMID_original
         f.name = '${key}_${f.originalName}';
         // keep going even if one file fails — never stop the whole batch
@@ -381,11 +384,23 @@ class _DownloaderPageState extends State<DownloaderPage> {
                     onPressed:
                         (_downloading || album.files.isEmpty) ? null : _downloadAll,
                     icon: const Icon(Icons.download),
-                    label: Text(_downloading ? 'Downloading…' : 'Download all'),
+                    label: Text(_downloading
+                        ? 'Downloading…'
+                        : 'Download all'),
                   ),
                 ],
               ),
               const SizedBox(height: 8),
+              if (_downloading)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    'Downloading $_currentFile of '
+                    '${album.files.length} files...',
+                    style: const TextStyle(
+                        fontSize: 13, color: Colors.grey),
+                  ),
+                ),
               Expanded(
                 child: ListView.builder(
                   itemCount: album.files.length,
