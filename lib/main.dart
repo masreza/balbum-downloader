@@ -336,6 +336,23 @@ class _DownloaderPageState extends State<DownloaderPage> {
             ),
             const SizedBox(height: 8),
             Row(
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                Checkbox(
+                  value: _mediaOnly,
+                  onChanged: (_loading || _downloading)
+                      ? null
+                      : (v) => setState(() => _mediaOnly = v ?? false),
+                ),
+                const Text('Media only (pictures & videos)'),
+                const SizedBox(width: 12),
+                if (_mediaOnly)
+                  const Text('Downloads only pictures & video files.',
+                      style: TextStyle(fontSize: 12, color: Colors.grey)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
               children: [
                 const Icon(Icons.folder_outlined),
                 const SizedBox(width: 8),
@@ -400,33 +417,12 @@ class _DownloaderPageState extends State<DownloaderPage> {
                 ],
               ),
               const SizedBox(height: 4),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Checkbox(
-                        value: _mediaOnly,
-                        onChanged: _downloading
-                            ? null
-                            : (v) => setState(() => _mediaOnly = v ?? false),
-                      ),
-                      GestureDetector(
-                        onTap: _downloading
-                            ? null
-                            : () => setState(() => _mediaOnly = !_mediaOnly),
-                        child: const Text('Media only (pictures & videos)'),
-                      ),
-                    ],
-                  ),
-                  if (_mediaOnly && !_downloading)
-                    Text(
-                      '${album.files.where((f) => f.isMedia).length} media files',
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                ],
-              ),
+              if (_mediaOnly && !_downloading)
+                Text(
+                  '${album.files.where((f) => f.isMedia).length} media files '
+                  'will be downloaded.',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
               const SizedBox(height: 8),
               if (_downloading)
                 Padding(
