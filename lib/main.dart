@@ -364,13 +364,13 @@ class _DownloaderPageState extends State<DownloaderPage> {
               ],
             ),
             const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.start,
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 6,
               children: [
                 const Text('Download:',
                     style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(width: 10),
-                for (final f in DownloadFilter.values) ...[
+                for (final f in DownloadFilter.values)
                   ChoiceChip(
                     label: Text(f.label),
                     selected: _filter == f,
@@ -378,8 +378,6 @@ class _DownloaderPageState extends State<DownloaderPage> {
                         ? null
                         : (_) => setState(() => _filter = f),
                   ),
-                  const SizedBox(width: 6),
-                ],
               ],
             ),
             const SizedBox(height: 8),
